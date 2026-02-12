@@ -72,10 +72,7 @@ function renderIndicator(container) {
   `;
 }
 
-let injecting = false;
-
 function injectLinesViewed() {
-  if (injecting) return false;
   if (document.getElementById("glv-lines-viewed")) return true;
 
   const fileControls = document.querySelector(
@@ -83,8 +80,6 @@ function injectLinesViewed() {
   );
   if (!fileControls) return false;
   if (!loadInitialState()) return false;
-
-  injecting = true;
 
   const container = document.createElement("div");
   container.id = "glv-lines-viewed";
