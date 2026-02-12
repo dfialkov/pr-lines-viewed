@@ -17,6 +17,7 @@ let digestToPath = new Map();
 let totalAdded = 0;
 let totalDeleted = 0;
 let totalLines = 0;
+let splitColors = true;
 
 function loadInitialState() {
   const summaries = getEmbeddedData();
@@ -57,6 +58,13 @@ function getViewedStats() {
 
 function computeOffsets(viewedAdded, viewedDeleted) {
   const circumference = 38;
+
+  if (!splitColors) {
+    const viewed = viewedAdded + viewedDeleted;
+    const greenLen = totalLines > 0 ? (viewed / totalLines) * circumference : 0;
+    return { greenOffset: circumference - greenLen, redOffset: circumference };
+  }
+
   const addShare = totalLines > 0 ? (totalAdded / totalLines) * circumference : 0;
   const delShare = totalLines > 0 ? (totalDeleted / totalLines) * circumference : 0;
 
@@ -71,14 +79,38 @@ function computeOffsets(viewedAdded, viewedDeleted) {
 
 function createIndicator(container) {
   const circumference = 38;
+  const { viewedAdded, viewedDeleted, viewed } = getViewedStats();
+  const { greenOffset, redOffset } = computeOffsets(viewedAdded, viewedDeleted);
+
+  if (!splitColors) {
+    container.title = `Lines viewed: ${viewed} / ${totalLines}`;
+    container.innerHTML = `
+      <svg data-circumference="${circumference}" height="16" width="16" role="presentation" style="transform: rotate(-90deg);">
+        <circle cx="50%" cy="50%" fill="transparent" r="6"
+          stroke="var(--borderColor-default, var(--color-border-default))"
+          stroke-width="2"></circle>
+        <circle data-glv="green" cx="50%" cy="50%" fill="transparent" r="6"
+          stroke="#1a7f37"
+          stroke-dasharray="${circumference}"
+          stroke-dashoffset="${greenOffset}"
+          stroke-linecap="butt"
+          stroke-width="2"
+          style="transition: stroke-dashoffset 0.35s;"></circle>
+      </svg>
+      <span class="ml-1" style="font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums;">
+        <span data-glv="viewed" style="font-weight:600"><span data-glv="zeros" style="color:var(--fgColor-muted, var(--color-fg-muted))">${"0".repeat(Math.max(0, String(totalLines).length - String(viewed).length))}</span>${viewed}</span> /
+        <span style="font-weight:600">${totalLines}</span>
+        <span style="color:var(--fgColor-muted, var(--color-fg-muted))">lines</span>
+      </span>
+    `;
+    return;
+  }
+
   const addShare = totalLines > 0 ? (totalAdded / totalLines) * circumference : 0;
   const showMarker = totalAdded > 0 && totalDeleted > 0;
   const markerWidth = 1;
   const meetingPos = addShare - markerWidth / 2;
   const markerOffset = circumference - meetingPos;
-
-  const { viewedAdded, viewedDeleted, viewed } = getViewedStats();
-  const { greenOffset, redOffset } = computeOffsets(viewedAdded, viewedDeleted);
 
   container.title = `Lines viewed: ${viewed} / ${totalLines}\n+${viewedAdded} / +${totalAdded} additions\n-${viewedDeleted} / -${totalDeleted} deletions`;
   container.innerHTML = `
@@ -118,9 +150,9 @@ function updateIndicator(container) {
   const { viewedAdded, viewedDeleted, viewed } = getViewedStats();
   const { greenOffset, redOffset } = computeOffsets(viewedAdded, viewedDeleted);
 
-  // Update SVG arcs (CSS transition handles the animation)
   container.querySelector('[data-glv="green"]').setAttribute("stroke-dashoffset", greenOffset);
-  container.querySelector('[data-glv="red"]').setAttribute("stroke-dashoffset", redOffset);
+  const redCircle = container.querySelector('[data-glv="red"]');
+  if (redCircle) redCircle.setAttribute("stroke-dashoffset", redOffset);
 
   // Update text
   const viewedSpan = container.querySelector('[data-glv="viewed"]');
@@ -129,7 +161,11 @@ function updateIndicator(container) {
   viewedSpan.lastChild.textContent = viewed;
 
   // Update tooltip
-  container.title = `Lines viewed: ${viewed} / ${totalLines}\n+${viewedAdded} / +${totalAdded} additions\n-${viewedDeleted} / -${totalDeleted} deletions`;
+  if (splitColors) {
+    container.title = `Lines viewed: ${viewed} / ${totalLines}\n+${viewedAdded} / +${totalAdded} additions\n-${viewedDeleted} / -${totalDeleted} deletions`;
+  } else {
+    container.title = `Lines viewed: ${viewed} / ${totalLines}`;
+  }
 }
 
 function injectLinesViewed() {
@@ -184,11 +220,25 @@ document.addEventListener("click", (e) => {
   if (container) updateIndicator(container);
 });
 
-const observer = new MutationObserver(() => {
-  if (!document.getElementById("glv-lines-viewed")) {
-    injectLinesViewed();
+// Listen for split-colors toggle from popup
+chrome.runtime.onMessage.addListener((msg) => {
+  if (msg.splitColors !== undefined) {
+    splitColors = msg.splitColors;
+    const container = document.getElementById("glv-lines-viewed");
+    if (container) createIndicator(container);
   }
 });
 
-observer.observe(document.body, { childList: true, subtree: true });
-injectLinesViewed();
+// Read persisted setting before first render
+chrome.storage.sync.get({ splitColors: true }, (result) => {
+  splitColors = result.splitColors;
+
+  const observer = new MutationObserver(() => {
+    if (!document.getElementById("glv-lines-viewed")) {
+      injectLinesViewed();
+    }
+  });
+
+  observer.observe(document.body, { childList: true, subtree: true });
+  injectLinesViewed();
+});
