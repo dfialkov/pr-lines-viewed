@@ -10,10 +10,12 @@ function getEmbeddedData() {
   return null;
 }
 
-// Per-file state: path -> { linesChanged, viewed }
+// Per-file state: path -> { linesAdded, linesDeleted, viewed }
 let fileStats = new Map();
 // Lookup: pathDigest -> path (to resolve diff anchors to file paths)
 let digestToPath = new Map();
+let totalAdded = 0;
+let totalDeleted = 0;
 let totalLines = 0;
 
 function loadInitialState() {
@@ -22,47 +24,83 @@ function loadInitialState() {
 
   fileStats = new Map();
   digestToPath = new Map();
+  totalAdded = 0;
+  totalDeleted = 0;
   totalLines = 0;
 
   for (const file of summaries) {
     fileStats.set(file.path, {
-      linesChanged: file.linesChanged,
+      linesAdded: file.linesAdded,
+      linesDeleted: file.linesDeleted,
       viewed: file.markedAsViewed,
     });
     digestToPath.set(file.pathDigest, file.path);
+    totalAdded += file.linesAdded;
+    totalDeleted += file.linesDeleted;
     totalLines += file.linesChanged;
   }
 
   return true;
 }
 
-function getViewedLines() {
-  let viewed = 0;
+function getViewedStats() {
+  let viewedAdded = 0;
+  let viewedDeleted = 0;
   for (const file of fileStats.values()) {
-    if (file.viewed) viewed += file.linesChanged;
+    if (file.viewed) {
+      viewedAdded += file.linesAdded;
+      viewedDeleted += file.linesDeleted;
+    }
   }
-  return viewed;
+  return { viewedAdded, viewedDeleted, viewed: viewedAdded + viewedDeleted };
 }
 
 function renderIndicator(container) {
-  const viewed = getViewedLines();
-  const fraction = totalLines > 0 ? viewed / totalLines : 0;
+  const { viewedAdded, viewedDeleted, viewed } = getViewedStats();
   const circumference = 38;
-  const dashoffset = circumference * (1 - fraction);
 
-  container.title = `Lines viewed: ${viewed} / ${totalLines}`;
+  // Each type gets a proportional share of the circle
+  const addShare = totalLines > 0 ? (totalAdded / totalLines) * circumference : 0;
+  const delShare = totalLines > 0 ? (totalDeleted / totalLines) * circumference : 0;
+
+  // Green arc: clockwise from top, fills its share proportionally
+  const greenLen = totalAdded > 0 ? (viewedAdded / totalAdded) * addShare : 0;
+  const greenOffset = circumference - greenLen;
+
+  // Red arc: counterclockwise from top (via scaleY(-1)), fills its share
+  const redLen = totalDeleted > 0 ? (viewedDeleted / totalDeleted) * delShare : 0;
+  const redOffset = circumference - redLen;
+
+  // White marker at the meeting point (where green and red meet when complete)
+  const meetingPos = addShare;
+  const markerOffset = circumference - meetingPos;
+  const showMarker = totalAdded > 0 && totalDeleted > 0;
+
+  container.title = `Lines viewed: ${viewed} / ${totalLines}\n+${viewedAdded} / +${totalAdded} additions\n-${viewedDeleted} / -${totalDeleted} deletions`;
   container.innerHTML = `
     <svg data-circumference="${circumference}" height="16" width="16" role="presentation" style="transform: rotate(-90deg);">
       <circle cx="50%" cy="50%" fill="transparent" r="6"
         stroke="var(--borderColor-default, var(--color-border-default))"
         stroke-width="2"></circle>
+      ${showMarker ? `<circle cx="50%" cy="50%" fill="transparent" r="6"
+        stroke="white"
+        stroke-dasharray="1 ${circumference - 1}"
+        stroke-dashoffset="${markerOffset}"
+        stroke-width="2"></circle>` : ""}
       <circle cx="50%" cy="50%" fill="transparent" r="6"
         stroke="#1a7f37"
         stroke-dasharray="${circumference}"
-        stroke-dashoffset="${dashoffset}"
+        stroke-dashoffset="${greenOffset}"
         stroke-linecap="round"
         stroke-width="2"
         style="transition: stroke-dashoffset 0.35s;"></circle>
+      <circle cx="50%" cy="50%" fill="transparent" r="6"
+        stroke="#cf222e"
+        stroke-dasharray="${circumference}"
+        stroke-dashoffset="${redOffset}"
+        stroke-linecap="round"
+        stroke-width="2"
+        style="transition: stroke-dashoffset 0.35s; transform: scaleY(-1); transform-origin: center;"></circle>
     </svg>
     <span class="ml-1" style="font-size: 12px; white-space: nowrap;">
       <span style="font-weight:600">${viewed}</span> /
