@@ -12,6 +12,8 @@ function getEmbeddedData() {
 
 // Per-file state: path -> { linesChanged, viewed }
 let fileStats = new Map();
+// Lookup: pathDigest -> path (to resolve diff anchors to file paths)
+let digestToPath = new Map();
 let totalLines = 0;
 
 function loadInitialState() {
@@ -19,6 +21,7 @@ function loadInitialState() {
   if (!summaries) return false;
 
   fileStats = new Map();
+  digestToPath = new Map();
   totalLines = 0;
 
   for (const file of summaries) {
@@ -26,6 +29,7 @@ function loadInitialState() {
       linesChanged: file.linesChanged,
       viewed: file.markedAsViewed,
     });
+    digestToPath.set(file.pathDigest, file.path);
     totalLines += file.linesChanged;
   }
 
@@ -68,10 +72,7 @@ function renderIndicator(container) {
   `;
 }
 
-let injecting = false;
-
 function injectLinesViewed() {
-  if (injecting) return false;
   if (document.getElementById("glv-lines-viewed")) return true;
 
   const fileControls = document.querySelector(
@@ -79,8 +80,6 @@ function injectLinesViewed() {
   );
   if (!fileControls) return false;
   if (!loadInitialState()) return false;
-
-  injecting = true;
 
   const container = document.createElement("div");
   container.id = "glv-lines-viewed";
@@ -102,48 +101,34 @@ function injectLinesViewed() {
   return true;
 }
 
-// When a "Viewed" button is toggled, find the file path and update local state
-function handleViewedToggle(button) {
-  const header = button.closest(
-    '[class*="DiffFileHeader-module__diff-file-header__"]'
-  );
-  if (!header) return;
+// When a "Viewed" button is clicked, find the file via the outer diff container id
+document.addEventListener("click", (e) => {
+  const viewedBtn = e.target.closest('[class*="MarkAsViewedButton-module"]');
+  if (!viewedBtn) return;
 
-  const pathEl = header.querySelector("[data-file-path]");
-  if (!pathEl) return;
+  // The outer diff container has id="diff-{digest}"
+  const diffContainer = viewedBtn.closest('[id^="diff-"]');
+  if (!diffContainer) return;
 
-  const path = pathEl.getAttribute("data-file-path");
+  const digest = diffContainer.id.replace("diff-", "");
+  const path = digestToPath.get(digest);
+  if (!path) return;
+
   const file = fileStats.get(path);
   if (!file) return;
 
-  file.viewed = button.getAttribute("aria-pressed") === "true";
+  // Toggle local state (click always flips the current state)
+  file.viewed = !file.viewed;
 
   const container = document.getElementById("glv-lines-viewed");
   if (container) renderIndicator(container);
-}
+});
 
-const observer = new MutationObserver((mutations) => {
+const observer = new MutationObserver(() => {
   if (!document.getElementById("glv-lines-viewed")) {
     injectLinesViewed();
-    return;
-  }
-
-  for (const mutation of mutations) {
-    if (
-      mutation.type === "attributes" &&
-      mutation.attributeName === "aria-pressed" &&
-      mutation.target.matches('[class*="MarkAsViewedButton-module"]')
-    ) {
-      handleViewedToggle(mutation.target);
-      return;
-    }
   }
 });
 
-observer.observe(document.body, {
-  childList: true,
-  subtree: true,
-  attributes: true,
-  attributeFilter: ["aria-pressed"],
-});
+observer.observe(document.body, { childList: true, subtree: true });
 injectLinesViewed();
