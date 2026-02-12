@@ -3,6 +3,11 @@
   "name": "GitHub Lines Viewed",
   "version": "0.1.0",
   "description": "Shows how many lines you've viewed in a GitHub PR",
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
   "permissions": [],
   "content_scripts": [
     {
