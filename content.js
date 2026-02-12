@@ -72,7 +72,8 @@ function renderIndicator(container) {
   const redOffset = circumference - redLen;
 
   // White marker at the meeting point (where green and red meet when complete)
-  const meetingPos = addShare;
+  const markerWidth = 1;
+  const meetingPos = addShare - markerWidth / 2;
   const markerOffset = circumference - meetingPos;
   const showMarker = totalAdded > 0 && totalDeleted > 0;
 
@@ -82,28 +83,28 @@ function renderIndicator(container) {
       <circle cx="50%" cy="50%" fill="transparent" r="6"
         stroke="var(--borderColor-default, var(--color-border-default))"
         stroke-width="2"></circle>
-      ${showMarker ? `<circle cx="50%" cy="50%" fill="transparent" r="6"
-        stroke="white"
-        stroke-dasharray="1 ${circumference - 1}"
-        stroke-dashoffset="${markerOffset}"
-        stroke-width="2"></circle>` : ""}
       <circle cx="50%" cy="50%" fill="transparent" r="6"
         stroke="#1a7f37"
         stroke-dasharray="${circumference}"
         stroke-dashoffset="${greenOffset}"
-        stroke-linecap="round"
+        stroke-linecap="butt"
         stroke-width="2"
         style="transition: stroke-dashoffset 0.35s;"></circle>
       <circle cx="50%" cy="50%" fill="transparent" r="6"
         stroke="#cf222e"
         stroke-dasharray="${circumference}"
         stroke-dashoffset="${redOffset}"
-        stroke-linecap="round"
+        stroke-linecap="butt"
         stroke-width="2"
         style="transition: stroke-dashoffset 0.35s; transform: scaleY(-1); transform-origin: center;"></circle>
+      ${showMarker ? `<circle cx="50%" cy="50%" fill="transparent" r="6"
+        stroke="white"
+        stroke-dasharray="1 ${circumference - 1}"
+        stroke-dashoffset="${markerOffset}"
+        stroke-width="2"></circle>` : ""}
     </svg>
-    <span class="ml-1" style="font-size: 12px; white-space: nowrap;">
-      <span style="font-weight:600">${viewed}</span> /
+    <span class="ml-1" style="font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums;">
+      <span style="font-weight:600"><span style="color:var(--fgColor-muted, var(--color-fg-muted))">${"0".repeat(Math.max(0, String(totalLines).length - String(viewed).length))}</span>${viewed}</span> /
       <span style="font-weight:600">${totalLines}</span>
       <span style="color:var(--fgColor-muted, var(--color-fg-muted))">lines</span>
     </span>
