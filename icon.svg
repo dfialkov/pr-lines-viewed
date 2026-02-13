@@ -5,11 +5,11 @@
       stroke="#3d444d" stroke-width="2"/>
     <!-- Green arc: 62.5% clockwise from top -->
     <circle cx="8" cy="8" fill="transparent" r="6"
-      stroke="#1a7f37" stroke-dasharray="23.562 14.137"
+      stroke="#3fb950" stroke-dasharray="23.562 14.137"
       stroke-linecap="butt" stroke-width="2"/>
     <!-- Red arc: 37.5% from meeting point clockwise back to top -->
     <circle cx="8" cy="8" fill="transparent" r="6"
-      stroke="#cf222e" stroke-dasharray="14.137 23.562"
+      stroke="#f85149" stroke-dasharray="14.137 23.562"
       stroke-dashoffset="-23.562"
       stroke-linecap="butt" stroke-width="2"/>
     <!-- White meeting point marker -->
