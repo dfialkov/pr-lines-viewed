@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "GitHub Lines Viewed",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Shows how many lines you've viewed in a GitHub PR",
   "permissions": ["storage"],
   "action": {
