@@ -85,6 +85,70 @@ function computeOffsets(viewedAdded, viewedDeleted) {
   };
 }
 
+function createViewedRoller(viewed) {
+  const width = String(totalLines).length;
+  const padded = String(viewed).padStart(width, "0");
+  const leadingZeros = width - String(viewed).length;
+
+  const wrapper = document.createElement("span");
+  wrapper.dataset.glv = "viewed";
+  wrapper.style.cssText = "font-weight:600; display:inline-flex; height:1em; line-height:1; overflow:hidden;";
+
+  for (let i = 0; i < width; i++) {
+    const digit = parseInt(padded[i]);
+    const strip = document.createElement("span");
+    strip.dataset.glvDigit = "";
+    strip.style.cssText = `display:flex; flex-direction:column; transform:translateY(-${digit}em);`;
+    if (i < leadingZeros) strip.style.color = "var(--fgColor-muted, var(--color-fg-muted))";
+
+    for (let d = 0; d <= 9; d++) {
+      const el = document.createElement("span");
+      el.textContent = d;
+      el.style.height = "1em";
+      strip.appendChild(el);
+    }
+    wrapper.appendChild(strip);
+  }
+  return wrapper;
+}
+
+function setRollerValue(container, value) {
+  const width = String(totalLines).length;
+  const padded = String(value).padStart(width, "0");
+  const leadingZeros = width - String(value).length;
+  const strips = container.querySelectorAll('[data-glv="viewed"] [data-glv-digit]');
+
+  strips.forEach((strip, i) => {
+    strip.style.transform = `translateY(-${parseInt(padded[i])}em)`;
+    strip.style.color = i < leadingZeros ? "var(--fgColor-muted, var(--color-fg-muted))" : "";
+  });
+}
+
+let rollerAnimId = null;
+
+function animateViewedRoller(container, from, to) {
+  if (rollerAnimId) cancelAnimationFrame(rollerAnimId);
+  if (from === to) return;
+
+  const start = performance.now();
+  const duration = 350;
+
+  function tick(now) {
+    const t = Math.min((now - start) / duration, 1);
+    const eased = 1 - Math.pow(1 - t, 3); // cubic ease-out
+    const current = Math.round(from + (to - from) * eased);
+    setRollerValue(container, current);
+
+    if (t < 1) {
+      rollerAnimId = requestAnimationFrame(tick);
+    } else {
+      rollerAnimId = null;
+    }
+  }
+
+  rollerAnimId = requestAnimationFrame(tick);
+}
+
 function createIndicator(container) {
   const circumference = 38;
   const { viewedAdded, viewedDeleted, viewed } = getViewedStats();
@@ -106,11 +170,13 @@ function createIndicator(container) {
           style="transition: stroke-dashoffset 0.35s;"></circle>
       </svg>
       <span class="ml-1" style="font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums;">
-        <span data-glv="viewed" style="font-weight:600"><span data-glv="zeros" style="color:var(--fgColor-muted, var(--color-fg-muted))">${"0".repeat(Math.max(0, String(totalLines).length - String(viewed).length))}</span>${viewed}</span> /
+        <span data-glv="viewed-placeholder"></span> /
         <span style="font-weight:600">${totalLines}</span>
         <span style="color:var(--fgColor-muted, var(--color-fg-muted))">lines</span>
       </span>
     `;
+    container.querySelector('[data-glv="viewed-placeholder"]').replaceWith(createViewedRoller(viewed));
+    container.dataset.glvViewed = viewed;
     return;
   }
 
@@ -147,11 +213,13 @@ function createIndicator(container) {
         stroke-width="2"></circle>` : ""}
     </svg>
     <span class="ml-1" style="font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums;">
-      <span data-glv="viewed" style="font-weight:600"><span data-glv="zeros" style="color:var(--fgColor-muted, var(--color-fg-muted))">${"0".repeat(Math.max(0, String(totalLines).length - String(viewed).length))}</span>${viewed}</span> /
+      <span data-glv="viewed-placeholder"></span> /
       <span style="font-weight:600">${totalLines}</span>
       <span style="color:var(--fgColor-muted, var(--color-fg-muted))">lines</span>
     </span>
   `;
+  container.querySelector('[data-glv="viewed-placeholder"]').replaceWith(createViewedRoller(viewed));
+  container.dataset.glvViewed = viewed;
 }
 
 function updateIndicator(container) {
@@ -162,11 +230,9 @@ function updateIndicator(container) {
   const redCircle = container.querySelector('[data-glv="red"]');
   if (redCircle) redCircle.setAttribute("stroke-dashoffset", redOffset);
 
-  // Update text
-  const viewedSpan = container.querySelector('[data-glv="viewed"]');
-  const zerosSpan = container.querySelector('[data-glv="zeros"]');
-  zerosSpan.textContent = "0".repeat(Math.max(0, String(totalLines).length - String(viewed).length));
-  viewedSpan.lastChild.textContent = viewed;
+  const oldViewed = parseInt(container.dataset.glvViewed || "0");
+  container.dataset.glvViewed = viewed;
+  animateViewedRoller(container, oldViewed, viewed);
 
   // Update tooltip
   if (splitColors) {
