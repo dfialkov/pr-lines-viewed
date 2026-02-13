@@ -59,10 +59,15 @@ function getViewedStats() {
 function computeOffsets(viewedAdded, viewedDeleted) {
   const circumference = 38;
 
+  // Round linecaps protrude by half the stroke-width (1 unit) beyond the arc
+  // endpoint. Compensate so the rounded tip lands where a flat cap would end.
+  const capAdj = 1;
+
   if (!splitColors) {
     const viewed = viewedAdded + viewedDeleted;
     const greenLen = totalLines > 0 ? (viewed / totalLines) * circumference : 0;
-    return { greenOffset: circumference - greenLen, redOffset: circumference };
+    const adjGreen = greenLen > 0 ? Math.max(0, greenLen - capAdj) : 0;
+    return { greenOffset: circumference - adjGreen, redOffset: circumference };
   }
 
   const addShare = totalLines > 0 ? (totalAdded / totalLines) * circumference : 0;
@@ -71,9 +76,12 @@ function computeOffsets(viewedAdded, viewedDeleted) {
   const greenLen = totalAdded > 0 ? (viewedAdded / totalAdded) * addShare : 0;
   const redLen = totalDeleted > 0 ? (viewedDeleted / totalDeleted) * delShare : 0;
 
+  const adjGreen = greenLen > 0 ? Math.max(0, greenLen - capAdj) : 0;
+  const adjRed = redLen > 0 ? Math.max(0, redLen - capAdj) : 0;
+
   return {
-    greenOffset: circumference - greenLen,
-    redOffset: circumference - redLen,
+    greenOffset: circumference - adjGreen,
+    redOffset: circumference - adjRed,
   };
 }
 
@@ -90,10 +98,10 @@ function createIndicator(container) {
           stroke="var(--borderColor-default, var(--color-border-default))"
           stroke-width="2"></circle>
         <circle data-glv="green" cx="50%" cy="50%" fill="transparent" r="6"
-          stroke="#1a7f37"
+          stroke="var(--fgColor-success, var(--color-success-fg))"
           stroke-dasharray="${circumference}"
           stroke-dashoffset="${greenOffset}"
-          stroke-linecap="butt"
+          stroke-linecap="round"
           stroke-width="2"
           style="transition: stroke-dashoffset 0.35s;"></circle>
       </svg>
@@ -119,17 +127,17 @@ function createIndicator(container) {
         stroke="var(--borderColor-default, var(--color-border-default))"
         stroke-width="2"></circle>
       <circle data-glv="green" cx="50%" cy="50%" fill="transparent" r="6"
-        stroke="#1a7f37"
+        stroke="var(--fgColor-success, var(--color-success-fg))"
         stroke-dasharray="${circumference}"
         stroke-dashoffset="${greenOffset}"
-        stroke-linecap="butt"
+        stroke-linecap="round"
         stroke-width="2"
         style="transition: stroke-dashoffset 0.35s;"></circle>
       <circle data-glv="red" cx="50%" cy="50%" fill="transparent" r="6"
-        stroke="#cf222e"
+        stroke="var(--fgColor-danger, var(--color-danger-fg))"
         stroke-dasharray="${circumference}"
         stroke-dashoffset="${redOffset}"
-        stroke-linecap="butt"
+        stroke-linecap="round"
         stroke-width="2"
         style="transition: stroke-dashoffset 0.35s; transform: scaleY(-1); transform-origin: center;"></circle>
       ${showMarker ? `<circle cx="50%" cy="50%" fill="transparent" r="6"
